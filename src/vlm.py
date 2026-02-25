@@ -849,33 +849,7 @@ class VLMClient:
             "max_intensity": max_intensity
         }
 
-    def _calculate_intensity_score(self, burst_logs):
-        """Parse INTENSITY fields from burst logs and calculate an average score (1-10)."""
-        scores = []
-        mapping = {
-            "high": 10,
-            "medium": 7,
-            "low": 4,
-            "none": 1,
-            "n/a": 1
-        }
-        
-        for log in burst_logs:
-            # multiple intensity fields might appear in one burst log? usually one per burst prompt.
-            # But let's find all occurrences just in case.
-            matches = re.findall(r'INTENSITY:\s*(\w+)', log, re.IGNORECASE)
-            for m in matches:
-                val = m.strip().lower()
-                if val in mapping:
-                    scores.append(mapping[val])
-                else:
-                    scores.append(1) # Default for unknown
-        
-        if not scores:
-            return 5 # Fallback average
-            
-        avg = sum(scores) / len(scores)
-        return int(round(avg))
+
 
 
     def re_judge_metadata(self, sensor_log):
