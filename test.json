@@ -1,0 +1,5 @@
+{
+  "model": "gemma3-heretic:12b",
+  "prompt": "Hello! Confirm you are functional and explain if you are the Heretic variant.",
+  "stream": false
+}

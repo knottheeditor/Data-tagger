@@ -1,0 +1,11 @@
+PySide6
+peewee
+moviepy
+opencv-python-headless
+requests
+python-dotenv
+tqdm
+pydantic
+fastapi
+uvicorn
+rclone-python

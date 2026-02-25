@@ -1,0 +1,14 @@
+{
+    "staging_dir": "/workspace/staging",
+    "s3_mount_path": "/mnt/z",
+    "s3_organized_path": "do:chloe-storage/organized",
+    "min_free_space_gb": 5,
+    "runpod_api_key": "rpa_CZ2YSGJYZPYB3KE8R6K4WNX4JPNE1CM2QA4DO7ZW1u72te",
+    "runpod_pod_id": "txo1disvtrkjn5",
+    "vlm_endpoint": "http://127.0.0.1:11434/v1",
+    "vlm_model": "gemma3-heretic:12b",
+    "vlm_audit_model": "qwen2.5:7b-instruct",
+    "ssh_host": "209.170.80.132",
+    "ssh_port": 21610,
+    "ssh_key": "C:/Users/nicho/.ssh/id_runpod"
+}

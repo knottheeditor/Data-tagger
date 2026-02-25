@@ -1,0 +1,13 @@
+{
+    "staging_dir": "./staging",
+    "s3_mount_path": "Z:/",
+    "s3_organized_path": "Z:/Organized",
+    "min_free_space_gb": 20,
+    "runpod_api_key": "YOUR_KEY",
+    "runpod_pod_id": "YOUR_ID",
+    "vlm_endpoint": "http://localhost:11434/v1",
+    "vlm_model": "huihui_ai/qwen2.5-vl-abliterated:7b",
+    "do_endpoint": "nyc3.digitaloceanspaces.com",
+    "do_access_key": "YOUR_DO_ACCESS_KEY",
+    "do_secret_key": "YOUR_DO_SECRET_KEY"
+}

@@ -1,0 +1,14 @@
+FROM /workspace/models/gguf/gemma-3-12b-it-heretic-Q4_K_M.gguf
+
+TEMPLATE """{{- range .Messages }}
+{{- if eq .Role "user" }}<start_of_turn>user
+{{ .Content }}<end_of_turn>
+{{ else if eq .Role "model" }}<start_of_turn>model
+{{ .Content }}<end_of_turn>
+{{ end }}
+{{- end }}<start_of_turn>model
+"""
+
+PARAMETER stop <end_of_turn>
+PARAMETER temperature 0.4
+PARAMETER num_ctx 8192
