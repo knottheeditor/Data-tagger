@@ -1,3 +1,5 @@
 ﻿config.json
 *.db
 staging/
+*.zip
+*.exe
