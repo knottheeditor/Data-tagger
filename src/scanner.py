@@ -3,7 +3,7 @@ import os
 import hashlib
 import time
 from src.database import Content, db
-from src.utils import parse_filename, get_rclone_url, RemotePaths
+from src.utils import parse_filename, get_rclone_url, RemotePaths, ConfigManager
 import subprocess
 import json
 import collections
@@ -355,13 +355,7 @@ def _link_assets(master_record, file_list):
 
 def get_rclone_hash(remote_path, block_size=1024*1024):
     """Gets a hash for the first megabyte using rclone cat."""
-    import json
-    config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.json")
-    rclone_exe = "rclone"
-    if os.path.exists(config_path):
-        with open(config_path, 'r') as f:
-            config = json.load(f)
-            rclone_exe = config.get("rclone_path", "rclone")
+    rclone_exe = ConfigManager.get_rclone_exe()
 
     cmd = [rclone_exe, "cat", remote_path, "--offset", "0", "--count", str(block_size)]
     try:
@@ -375,13 +369,7 @@ def scan_rclone(remote_name):
     """
     Scans an rclone remote recursively, groups files, and designates a Master.
     """
-    import json
-    config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.json")
-    rclone_exe = "rclone"
-    if os.path.exists(config_path):
-        with open(config_path, 'r') as f:
-            config = json.load(f)
-            rclone_exe = config.get("rclone_path", "rclone")
+    rclone_exe = ConfigManager.get_rclone_exe()
 
     print(f"Scanning rclone remote: {remote_name}...", flush=True)
     cmd = [rclone_exe, "lsjson", "-R", remote_name]

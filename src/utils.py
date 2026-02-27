@@ -70,39 +70,50 @@ TYPE_KEYWORDS = {
     "PPV": ["ppv", "full", "scene", "main", "complete"],
 }
 
-# ==================== CORE UTILITIES ====================
+# ==================== CORE UTILITIES = [NEW] ====================
+class ConfigManager:
+    """Consolidated configuration and tool discovery."""
+    _config = None
+    
+    @classmethod
+    def get_config(cls):
+        if cls._config is None:
+            config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.json")
+            if not os.path.exists(config_path):
+                config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.json.template")
+            try:
+                with open(config_path, 'r') as f:
+                    cls._config = json.load(f)
+            except Exception as e:
+                print(f"Error loading config: {e}")
+                cls._config = {}
+        return cls._config
 
-# (Duplicate definition removed)
+    @classmethod
+    def get_tool_path(cls, key, default):
+        config = cls.get_config()
+        return config.get(key) or subprocess.check_output(["where", default], text=True).splitlines()[0] if not os.path.exists(default) else default
+
+    @classmethod
+    def get_rclone_exe(cls):
+        config = cls.get_config()
+        path = config.get("rclone_path")
+        if path and os.path.exists(path): return path
+        import shutil
+        return shutil.which("rclone") or os.path.join(os.getcwd(), "rclone.exe")
 
 def resolve_ssh_details(config, logger=None):
-    """Resolves IP/Port from static config or RunPod API."""
+    """Resolves IP/Port from static config (RunPod API fallback removed)."""
     # 1. Check for DigitalOcean static IP override
     if config.get("do_droplet_ip"):
         if logger: logger(f"Resolved: DigitalOcean Droplet at {config['do_droplet_ip']}:22")
         return config["do_droplet_ip"], 22
         
-    # 2. Fallback to RunPod API
+    # 2. Return static config
     host = config.get("ssh_host")
-    port = config.get("ssh_port")
-    api_key = config.get("runpod_api_key")
-    pod_id = config.get("runpod_pod_id")
-
-    if not api_key or not pod_id:
-        return host, port
-
-    try:
-        if logger: logger("Resolving RunPod SSH details via API...")
-        headers = {"Authorization": f"Bearer {api_key}"}
-        query = """query Pod($podId: String!) { pod(input: {podId: $podId}) { runtime { ports { ip publicPort privatePort } } } }"""
-        response = requests.post("https://api.runpod.io/graphql", json={"query": query, "variables": {"podId": pod_id}}, headers=headers, timeout=10)
-        data = response.json().get("data", {}).get("pod")
-        if data:
-            for p in data.get("runtime", {}).get("ports", []):
-                if p["privatePort"] == 22:
-                    if logger: logger(f"Resolved: {p['ip']}:{p['publicPort']}")
-                    return p["ip"], p["publicPort"]
-    except Exception as e:
-        if logger: logger(f"API Warning: {e}")
+    port = config.get("ssh_port", 22)
+    
+    if logger: logger(f"Resolved static host: {host}:{port}")
     return host, port
 
 def parse_filename(filename, parent_path=None):

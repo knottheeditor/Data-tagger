@@ -1,7 +1,7 @@
 #!/bin/bash
 # ============================================================
-# Data Forager: Full RunPod Setup Script
-# Run this ONCE on your RunPod instance after starting the pod.
+# Data Forager: Full Remote Pod Setup Script
+# Run this ONCE on your remote pod instance after starting the pod.
 # This script is idempotent — safe to re-run.
 #
 # Usage:
@@ -24,7 +24,7 @@
 set -e
 
 echo "============================================"
-echo "  DATA FORAGER // RunPod Auto-Setup"
+echo "  DATA FORAGER // Remote Pod Auto-Setup"
 echo "============================================"
 
 # --- Config ---
@@ -103,7 +103,7 @@ echo "============================================"
 echo ""
 echo "Model:    ${OLLAMA_MODEL_NAME}"
 echo "Endpoint: http://0.0.0.0:11434/v1"
-echo "Proxy:    Use RunPod proxy URL for external access"
+echo "Proxy:    Use remote proxy URL for external access"
 echo ""
 ollama list
 echo ""

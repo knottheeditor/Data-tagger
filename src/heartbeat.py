@@ -25,6 +25,6 @@ if __name__ == "__main__":
         if check_idle():
             print("Worker idle for too long. Stopping services...")
             subprocess.run(["pkill", "ollama"])
-            # Optionally: Use RunPod API to stop the pod if API key is in env
+            # Optionally: Use remote API to stop the pod if API key is in env
             break
         time.sleep(60)

@@ -1,13 +1,13 @@
 #!/bin/bash
 # ============================================================
-# Gemma-3-12B-IT-Heretic: Full Setup Script for RunPod
-# Run this ONCE on your RunPod instance after starting the pod.
+# Gemma-3-12B-IT-Heretic: Full Setup Script for remote pod
+# Run this ONCE on your remote pod instance after starting the pod.
 # ============================================================
 
 set -e
 
 echo "============================================"
-echo "  Gemma-3-12B-IT-Heretic Setup for RunPod"
+echo "  Gemma-3-12B-IT-Heretic Setup for remote pod"
 echo "============================================"
 
 # --- Config ---

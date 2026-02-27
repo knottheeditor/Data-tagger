@@ -19,7 +19,7 @@ from PySide6.QtCore import Qt, Signal, QThread, QSize, QPointF
 from PySide6.QtGui import QFont, QPixmap, QColor, QLinearGradient, QIcon, QPainter, QRadialGradient, QBrush
 
 from src.database import db, Content, Asset
-from src.utils import resolve_ssh_details, RemotePaths, StandardNaming
+from src.utils import resolve_ssh_details, RemotePaths, StandardNaming, ConfigManager
 try:
     from src.worker import RemoteScanWorker, ScanWorker
 except ImportError:
@@ -220,7 +220,7 @@ class DataForagerV2(QMainWindow):
         self.resize(1400, 900)
         
         # Load Config
-        self.config = self.load_config()
+        self.config = ConfigManager.get_config()
         self.selected_content = None
         
         self.init_ui()
@@ -253,12 +253,7 @@ class DataForagerV2(QMainWindow):
         painter.fillRect(rect, QBrush(vignette))
 
     def load_config(self):
-        config_path = os.path.join(os.path.dirname(__file__), "..", "config.json")
-        try:
-            with open(config_path, 'r') as f:
-                return json.load(f)
-        except:
-            return {}
+        return ConfigManager.get_config()
 
     def init_ui(self):
         central = QWidget()
@@ -1473,7 +1468,7 @@ class DataForagerV2(QMainWindow):
                 from src.utils import resolve_ssh_details
                 host, port = resolve_ssh_details(self.config)
                 if not host or not port:
-                    raise Exception("Could not resolve SSH details for RunPod.")
+                    raise Exception("Could not resolve SSH details for remote pod.")
                 
                 ssh_key = self.config.get("ssh_key", "~/.ssh/id_ed25519").replace("\\", "/")
                 ssh_key = os.path.expanduser(ssh_key)
@@ -1689,34 +1684,35 @@ class DataForagerV2(QMainWindow):
                 import shutil
                 import tempfile
                 
-                # Fetch DO credentials to generate temporary local config
+                # Fetch DO credentials to use as environment variables
                 do_access = self.config.get("do_access_key", "")
                 do_secret = self.config.get("do_secret_key", "")
                 do_endpoint = self.config.get("do_endpoint", "nyc3.digitaloceanspaces.com")
                 
-                rclone_conf = f"[do]\ntype = s3\nprovider = DigitalOcean\nenv_auth = false\naccess_key_id = {do_access}\nsecret_access_key = {do_secret}\nendpoint = {do_endpoint}\nacl = private\n"
-                tmp_conf = os.path.join(os.getcwd(), ".rclone.conf.tmp")
-                with open(tmp_conf, "w") as f:
-                    f.write(rclone_conf)
+                # Use environment variables instead of temporary files for better security
+                env = os.environ.copy()
+                env["RCLONE_CONFIG_DO_TYPE"] = "s3"
+                env["RCLONE_CONFIG_DO_PROVIDER"] = "DigitalOcean"
+                env["RCLONE_CONFIG_DO_ACCESS_KEY_ID"] = do_access
+                env["RCLONE_CONFIG_DO_SECRET_ACCESS_KEY"] = do_secret
+                env["RCLONE_CONFIG_DO_ENDPOINT"] = do_endpoint
+                env["RCLONE_CONFIG_DO_ACL"] = "private"
                 
-                # Look for rclone.exe: config override > PATH > current directory
-                rclone_exe = self.config.get("rclone_path") or shutil.which("rclone") or os.path.join(os.getcwd(), "rclone.exe")
+                # Look for rclone.exe using ConfigManager
+                from src.utils import ConfigManager
+                rclone_exe = ConfigManager.get_rclone_exe()
                 
-                if not os.path.exists(rclone_exe):
+                if not os.path.exists(rclone_exe) and not shutil.which("rclone"):
                     QMessageBox.critical(self, "Rclone Missing",
                         "rclone.exe not found!\n\n"
                         "Install with: winget install Rclone.Rclone\n"
                         "Or set 'rclone_path' in config.json to the full path.")
-                    if os.path.exists(tmp_conf):
-                        os.remove(tmp_conf)
                     return
                 
-                subprocess.run([rclone_exe, "--config", tmp_conf, "copyto", c.source_path, dest_video], 
-                              check=True, startupinfo=startupinfo)
+                # Execute copyto using the 'do:' remote prefix which rclone will now find in environment
+                subprocess.run([rclone_exe, "copyto", c.source_path, dest_video], 
+                               check=True, startupinfo=startupinfo, env=env)
                 
-                # Clean up temp config if successful
-                if os.path.exists(tmp_conf):
-                    os.remove(tmp_conf)
             except Exception as e:
                 QMessageBox.critical(self, "Download Failed", f"Rclone error: {e}")
                 return
