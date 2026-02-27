@@ -1,14 +1,14 @@
-
 import os
 import hashlib
 import time
-from src.database import Content, db
-from src.utils import parse_filename, get_rclone_url, RemotePaths, ConfigManager
 import subprocess
 import json
 import collections
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import quote
+
+from src.database import Content, db
+from src.utils import parse_filename, get_rclone_url, RemotePaths, ConfigManager, MetadataCache
 
 ALLOWED_EXTENSIONS = {'.mp4', '.mov', '.mkv', '.avi', '.wmv', '.webm'}
 
@@ -17,13 +17,32 @@ _RCLONE_SERVE_BASE = None  # e.g. "http://localhost:9876"
 _RCLONE_SERVE_REMOTE = None  # e.g. "do:chloe-storage/content-for-sale/STREAMVOD"
 
 def get_file_hash(filepath, block_size=1024*1024):
-    """Generates a hash for the first megabyte of a file (fast discovery)"""
-    hasher = hashlib.md5()
+    """Generates a hash for the first megabyte of a file (fast discovery).
+    Uses MetadataCache to skip hashing if the file hasn't changed.
+    """
     try:
+        # Check if we have this file in the DB or session with its metadata
+        # For simplicity in this local session, we'll store hashes in the MetadataCache too
+        stat_info = MetadataCache.get_file_info(filepath)
+        if not stat_info: return None
+        
+        cache_key = hashlib.md5(filepath.encode()).hexdigest()
+        cached_data = MetadataCache._cache.get(cache_key) # (size, mtime, hash)
+        
+        if cached_data and cached_data[0] == stat_info[0] and cached_data[1] == stat_info[1]:
+            return cached_data[2]
+
+        # Hash the first block
+        hasher = hashlib.md5()
         with open(filepath, 'rb') as f:
             buf = f.read(block_size)
             hasher.update(buf)
-        return hasher.hexdigest()
+        f_hash = hasher.hexdigest()
+        
+        # Cache the result
+        MetadataCache._cache[cache_key] = (stat_info[0], stat_info[1], f_hash)
+        return f_hash
+        
     except Exception as e:
         print(f"Error hashing {filepath}: {e}", flush=True)
         return None
@@ -203,10 +222,14 @@ def scan_directory(directory_path):
                 count += 1
                 if count % 1000 == 0:
                     print(f"  > Processed {count} discovery items...", flush=True)
-                full_path = os.path.join(root, name)
+                full_path = os.path.join(root, name).replace("\\", "/")
                 
                 ext = os.path.splitext(name)[1].lower()
                 if ext in ALLOWED_EXTENSIONS:
+                    # Use MetadataCache to get file hash and check if metadata changed
+                    f_hash = get_file_hash(full_path)
+                    if not f_hash: continue # Skip if hashing failed
+
                     # Pass the immediate parent folder as context, not the root scan folder
                     meta = parse_filename(name, parent_path=root)
                     key = (meta["date"], meta["name"].lower())

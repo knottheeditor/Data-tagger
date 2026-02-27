@@ -9,7 +9,7 @@ import json
 import re
 import time
 import requests
-from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
+from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                                QHBoxLayout, QPushButton, QLabel, QListWidget,
                                QLineEdit, QTextEdit, QComboBox, QSpinBox,
                                QSplitter, QFrame, QFileDialog, QScrollArea,
@@ -18,12 +18,17 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
 from PySide6.QtCore import Qt, Signal, QThread, QSize, QPointF
 from PySide6.QtGui import QFont, QPixmap, QColor, QLinearGradient, QIcon, QPainter, QRadialGradient, QBrush
 
-from src.database import db, Content, Asset
-from src.utils import resolve_ssh_details, RemotePaths, StandardNaming, ConfigManager
 try:
     from src.worker import RemoteScanWorker, ScanWorker
 except ImportError:
     from worker import RemoteScanWorker, ScanWorker
+
+import shutil
+import tempfile
+import traceback
+import hashlib
+from src.video_utils import VideoUtils
+from src.vlm import VLMClient
 
 class SystemStatusWorker(QThread):
     status_updated = Signal(str, str) # text, color (hex)
@@ -1411,9 +1416,6 @@ class DataForagerV2(QMainWindow):
     def extract_thumbnail(self):
         if not self.selected_content: return
         
-        from src.video_utils import VideoUtils
-        import tempfile, shutil
-        
         source = self.selected_content.source_path
         if source.startswith("do:"):
             # Check if we already have a synced thumb
@@ -1465,7 +1467,6 @@ class DataForagerV2(QMainWindow):
             QApplication.processEvents()
             
             try:
-                from src.utils import resolve_ssh_details
                 host, port = resolve_ssh_details(self.config)
                 if not host or not port:
                     raise Exception("Could not resolve SSH details for remote pod.")
@@ -1681,9 +1682,6 @@ class DataForagerV2(QMainWindow):
                     startupinfo = subprocess.STARTUPINFO()
                     startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
                     
-                import shutil
-                import tempfile
-                
                 # Fetch DO credentials to use as environment variables
                 do_access = self.config.get("do_access_key", "")
                 do_secret = self.config.get("do_secret_key", "")
@@ -1699,7 +1697,6 @@ class DataForagerV2(QMainWindow):
                 env["RCLONE_CONFIG_DO_ACL"] = "private"
                 
                 # Look for rclone.exe using ConfigManager
-                from src.utils import ConfigManager
                 rclone_exe = ConfigManager.get_rclone_exe()
                 
                 if not os.path.exists(rclone_exe) and not shutil.which("rclone"):

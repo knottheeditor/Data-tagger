@@ -1,8 +1,6 @@
-import re
-import os
-import subprocess
-import requests
 from datetime import datetime
+import json
+import hashlib
 
 # ==================== CONSTANTS & PATHS ====================
 class RemotePaths:
@@ -90,17 +88,41 @@ class ConfigManager:
         return cls._config
 
     @classmethod
-    def get_tool_path(cls, key, default):
-        config = cls.get_config()
-        return config.get(key) or subprocess.check_output(["where", default], text=True).splitlines()[0] if not os.path.exists(default) else default
-
-    @classmethod
     def get_rclone_exe(cls):
         config = cls.get_config()
         path = config.get("rclone_path")
         if path and os.path.exists(path): return path
         import shutil
         return shutil.which("rclone") or os.path.join(os.getcwd(), "rclone.exe")
+
+class MetadataCache:
+    """Memoizes file metadata (size, mtime) to avoid redundant hashing."""
+    _cache = {}
+    
+    @classmethod
+    def get_file_info(cls, filepath):
+        """Returns (size, mtime) for a local file, or None if error."""
+        try:
+            stat = os.stat(filepath)
+            return stat.st_size, stat.st_mtime
+        except:
+            return None
+
+    @classmethod
+    def needs_rehash(cls, filepath, saved_hash):
+        """Checks if a file's metadata matches the cached version."""
+        if not saved_hash: return True
+        current_info = cls.get_file_info(filepath)
+        if not current_info: return True
+        
+        cache_key = hashlib.md5(filepath.encode()).hexdigest()
+        cached = cls._cache.get(cache_key)
+        
+        if cached == current_info:
+            return False
+            
+        cls._cache[cache_key] = current_info
+        return True
 
 def resolve_ssh_details(config, logger=None):
     """Resolves IP/Port from static config (RunPod API fallback removed)."""

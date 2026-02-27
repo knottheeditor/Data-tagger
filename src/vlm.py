@@ -1,8 +1,6 @@
-import requests
-import json
-import base64
-import os
 import re
+import hashlib
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from src.lexicon import TAG_LEXICON
 
 VLM_CODE_VERSION = "v5.2-debug-trace"  # Change detection stamp
@@ -192,18 +190,22 @@ class VLMClient:
         self.model_name = model_name
         self.audit_model = audit_model or model_name
         self.ssh_config = ssh_config  # Expects {'host': str, 'port': int, 'ssh_key': str}
+        self._result_cache = {} # Simple in-memory cache for the current session
 
     def _encode_image(self, image_path):
         with open(image_path, "rb") as image_file:
             return base64.b64encode(image_file.read()).decode('utf-8')
 
-    def analyze_frames(self, image_paths, prompt, system_prompt=None, model_override=None):
+    def analyze_frames(self, image_paths, prompt, system_prompt=None, model_override=None, pre_encoded_images=None):
         """Sends multiple frames to the VLM via the native Ollama API using SSH transport."""
         target_model = model_override or self.model_name
         
         images = []
-        for path in image_paths:
-            images.append(self._encode_image(path))
+        if pre_encoded_images is not None:
+            images = pre_encoded_images
+        else:
+            for path in image_paths:
+                images.append(self._encode_image(path))
             
         messages = []
         if system_prompt:
@@ -224,6 +226,12 @@ class VLMClient:
                 "num_ctx": 16384
             }
         }
+        
+        # Cache Lookup: Hash the payload to simplify
+        payload_hash = hashlib.md5(json.dumps(payload).encode()).hexdigest()
+        if payload_hash in self._result_cache:
+            print(f"DEBUG: VLM Cache Hit (Model: {target_model})", flush=True)
+            return self._result_cache[payload_hash]
 
         try:
             # If SSH config is provided, we pipe the request directly to the pod's local port
@@ -279,7 +287,10 @@ class VLMClient:
                 response = requests.post(native_url, json=payload, timeout=240)
                 response.raise_for_status()
                 result = response.json()
-                return result.get('message', {}).get('content')
+                content = result.get('message', {}).get('content')
+                if content:
+                    self._result_cache[payload_hash] = content
+                return content
                 
         except Exception as e:
             import traceback as _tb
@@ -746,37 +757,55 @@ class VLMClient:
         """Full pipeline: Burst descriptions → Synthesis → Visual Tag Audit."""
         if not image_paths: return None
         
-        # PASS 1: Natural language burst descriptions
+        # Performance: Pre-encode all frames once
+        print(f"PIPELINE: Pre-encoding {len(image_paths)} frames...", flush=True)
+        all_encoded = {path: self._encode_image(path) for path in image_paths}
+        
+        # PASS 1: Natural language burst descriptions (Parallel)
         bursts = [image_paths[i:i + 4] for i in range(0, len(image_paths), 4)]
         segment_labels = ["Opening", "Early", "Build-up", "Mid-1", "Mid-2", "Mid-3", "Late-1", "Late-2", "Finale", "Bonus"]
-        print(f"PIPELINE: Describing {len(bursts)} segments across the video...", flush=True)
+        print(f"PIPELINE: Describing {len(bursts)} segments in parallel...", flush=True)
         
-        burst_descriptions = []
-        burst_intensities = []
-        import re
+        burst_descriptions_map = {} # Using map to preserve order
+        burst_intensities_map = {}
         
-        for i, burst_frames in enumerate(bursts):
-            label = segment_labels[i] if i < len(segment_labels) else f"Part {i+1}"
-            print(f"  Segment {i+1}/{len(bursts)} ({label})...", flush=True)
-            desc = self.analyze_frames(burst_frames, VISION_BURST_PROMPT, system_prompt=SYSTEM_PROMPT)
-            if desc:
-                # Strip preamble and clean
-                desc = self._strip_preamble(desc).strip().strip('"\'')
-                burst_descriptions.append(f"{label}: {desc}")
+        with ThreadPoolExecutor(max_workers=min(4, len(bursts))) as executor:
+            future_to_burst = {}
+            for i, burst_frames in enumerate(bursts):
+                label = segment_labels[i] if i < len(segment_labels) else f"Part {i+1}"
+                encoded_burst = [all_encoded[p] for p in burst_frames]
                 
-                # Extract ALL intensity scores from this burst (VLM often scores per-frame)
-                all_matches = re.findall(r'INTENSITY:\s*["\']?(?:\w+\s*)?["\']?\s*(\d+)', desc, re.IGNORECASE)
-                if all_matches:
-                    best_score = max(int(m) for m in all_matches)
-                    burst_intensities.append(best_score)
-                    print(f"    ⚡ INTENSITY: {best_score}/10 (from {len(all_matches)} scores found)", flush=True)
-                else:
-                    burst_intensities.append(-1)
-                    print(f"    ⚠️ No INTENSITY score found in this burst", flush=True)
-                    
-                print(f"    → {desc[:100]}...", flush=True)
-            else:
-                print(f"    Warning: Segment {i+1} returned nothing.", flush=True)
+                future = executor.submit(
+                    self.analyze_frames, 
+                    [], # empty paths since we provide pre_encoded 
+                    VISION_BURST_PROMPT, 
+                    system_prompt=SYSTEM_PROMPT,
+                    pre_encoded_images=encoded_burst
+                )
+                future_to_burst[future] = (i, label)
+            
+            for future in as_completed(future_to_burst):
+                idx, label = future_to_burst[future]
+                try:
+                    desc = future.result()
+                    if desc:
+                        desc = self._strip_preamble(desc).strip().strip('"\'')
+                        burst_descriptions_map[idx] = f"{label}: {desc}"
+                        
+                        all_matches = re.findall(r'INTENSITY:\s*["\']?(?:\w+\s*)?["\']?\s*(\d+)', desc, re.IGNORECASE)
+                        if all_matches:
+                            best_score = max(int(m) for m in all_matches)
+                            burst_intensities_map[idx] = best_score
+                        else:
+                            burst_intensities_map[idx] = -1
+                    else:
+                        print(f"    Warning: Segment {idx+1} ({label}) returned nothing.", flush=True)
+                except Exception as exc:
+                    print(f"    Error: Segment {idx+1} ({label}) generated an exception: {exc}", flush=True)
+
+        # Re-assemble in order
+        burst_descriptions = [burst_descriptions_map[i] for i in sorted(burst_descriptions_map.keys())]
+        burst_intensities = [burst_intensities_map[i] for i in sorted(burst_intensities_map.keys())]
 
         if not burst_descriptions:
             print("FAILURE: All burst descriptions failed.")
