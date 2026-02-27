@@ -1,0 +1,20 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.13.2, pytest-9.0.2, pluggy-1.6.0 -- C:\Users\nicho\AppData\Local\Programs\Python\Python313\python.exe
+cachedir: .pytest_cache
+rootdir: D:\AI_Shit\08_Utlity_Datatagger_Organizer
+plugins: anyio-4.12.1
+collecting ... collected 11 items
+
+tests/test_scanner.py::test_get_file_hash_with_metadata_cache PASSED     [  9%]
+tests/test_scanner.py::test_allowed_extensions PASSED                    [ 18%]
+tests/test_scanner.py::test_scan_folder_basic_discovery PASSED           [ 27%]
+tests/test_utils.py::test_config_manager_loading PASSED                  [ 36%]
+tests/test_utils.py::test_metadata_cache_needs_rehash PASSED             [ 45%]
+tests/test_utils.py::test_standardize_nl_date PASSED                     [ 54%]
+tests/test_utils.py::test_parse_filename PASSED                          [ 63%]
+tests/test_utils.py::test_resolve_ssh_details PASSED                     [ 72%]
+tests/test_vlm.py::test_vlm_caching PASSED                               [ 81%]
+tests/test_vlm.py::test_image_pre_encoding PASSED                        [ 90%]
+tests/test_vlm.py::test_parallel_burst_logic PASSED                      [100%]
+
+============================= 11 passed in 0.34s ==============================

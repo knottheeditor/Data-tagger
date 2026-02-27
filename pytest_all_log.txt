@@ -1,0 +1,138 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.13.2, pytest-9.0.2, pluggy-1.6.0 -- C:\Users\nicho\AppData\Local\Programs\Python\Python313\python.exe
+cachedir: .pytest_cache
+rootdir: D:\AI_Shit\08_Utlity_Datatagger_Organizer
+plugins: anyio-4.12.1
+collecting ... collected 11 items
+
+tests/test_scanner.py::test_get_file_hash_with_metadata_cache PASSED     [  9%]
+tests/test_scanner.py::test_allowed_extensions PASSED                    [ 18%]
+tests/test_scanner.py::test_scan_folder_basic_discovery FAILED           [ 27%]
+tests/test_utils.py::test_config_manager_loading PASSED                  [ 36%]
+tests/test_utils.py::test_metadata_cache_needs_rehash PASSED             [ 45%]
+tests/test_utils.py::test_standardize_nl_date PASSED                     [ 54%]
+tests/test_utils.py::test_parse_filename PASSED                          [ 63%]
+tests/test_utils.py::test_resolve_ssh_details PASSED                     [ 72%]
+tests/test_vlm.py::test_vlm_caching FAILED                               [ 81%]
+tests/test_vlm.py::test_image_pre_encoding PASSED                        [ 90%]
+tests/test_vlm.py::test_parallel_burst_logic FAILED                      [100%]
+
+================================== FAILURES ===================================
+______________________ test_scan_folder_basic_discovery _______________________
+
+mock_db = <MagicMock name='db' id='2550427872496'>
+temp_workspace = 'C:\\Users\\nicho\\AppData\\Local\\Temp\\tmpk3kqbn_q'
+
+    @patch("src.scanner.db")
+    def test_scan_folder_basic_discovery(mock_db, temp_workspace):
+        """Test basic file discovery in scan_folder."""
+        # Create some mock files
+        os.makedirs(os.path.join(temp_workspace, "subdir"))
+        f1 = os.path.join(temp_workspace, "2025-01-01 Scene 1.mp4")
+        f2 = os.path.join(temp_workspace, "subdir", "2025-01-02 Scene 2.mp4")
+    
+        for p in [f1, f2]:
+            with open(p, "wb") as f: f.write(b"video data")
+    
+>       from src.scanner import scan_folder
+E       ImportError: cannot import name 'scan_folder' from 'src.scanner' (D:\AI_Shit\08_Utlity_Datatagger_Organizer\src\scanner.py)
+
+tests\test_scanner.py:45: ImportError
+______________________________ test_vlm_caching _______________________________
+
+vlm_client = <src.vlm.VLMClient object at 0x00000251D1B10D70>
+
+    def test_vlm_caching(vlm_client):
+        """Test that VLMClient caches results to avoid redundant calls."""
+        # Mock analyze_frames to return a response
+        mock_response = "Test description"
+    
+        with patch.object(vlm_client, 'analyze_frames', return_value=mock_response) as mock_analyze:
+            # First call: should call analyze_frames
+            res1 = vlm_client.analyze_frames([], "test prompt")
+            assert res1 == mock_response
+            assert mock_analyze.call_count == 1
+    
+            # Second call: should hit cache
+            res2 = vlm_client.analyze_frames([], "test prompt")
+            assert res2 == mock_response
+>           assert mock_analyze.call_count == 1 # Still 1
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           AssertionError: assert 2 == 1
+E            +  where 2 = <MagicMock name='analyze_frames' id='2550433648320'>.call_count
+
+tests\test_vlm.py:26: AssertionError
+__________________________ test_parallel_burst_logic __________________________
+
+vlm_client = <src.vlm.VLMClient object at 0x00000251D19F6AD0>
+temp_workspace = 'C:\\Users\\nicho\\AppData\\Local\\Temp\\tmpf5ek5bpa'
+
+    def test_parallel_burst_logic(vlm_client, temp_workspace):
+        """Test the parallel pipeline trigger (get_metadata_from_video)."""
+        img_paths = [os.path.join(temp_workspace, f"f{i}.png") for i in range(4)]
+        for p in img_paths:
+            with open(p, "wb") as f: f.write(b"data")
+    
+        mock_desc = "INTENSITY: 5/10. Action description."
+        mock_synth = "Synthesized description."
+    
+        with patch.object(vlm_client, 'analyze_frames') as mock_analyze:
+            # First calls are for bursts, last is for synthesis
+            mock_analyze.side_effect = [mock_desc, mock_synth]
+    
+>           result = vlm_client.get_metadata_from_video(img_paths)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_vlm.py:51: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\vlm.py:850: in get_metadata_from_video
+    tags_raw = self.analyze_frames(
+C:\Users\nicho\AppData\Local\Programs\Python\Python313\Lib\unittest\mock.py:1167: in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\nicho\AppData\Local\Programs\Python\Python313\Lib\unittest\mock.py:1171: in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <MagicMock name='analyze_frames' id='2550433648656'>
+args = (['C:\\Users\\nicho\\AppData\\Local\\Temp\\tmpf5ek5bpa\\f0.png', 'C:\\Users\\nicho\\AppData\\Local\\Temp\\tmpf5ek5bpa\...more women\n- 'scissoring' = two women rubbing pussies together\n\nRespond with ONLY a comma-separated list.\n\nTags:")
+kwargs = {'system_prompt': 'You tag porn videos for search. ALL performers are FEMALE ù no men. ONLY tag what you can visually confirm. Do NOT guess.'}
+effect = <list_iterator object at 0x00000251D1B07940>
+
+    def _execute_mock_call(self, /, *args, **kwargs):
+        # separate from _increment_mock_call so that awaited functions are
+        # executed separately from their call, also AsyncMock overrides this method
+    
+        effect = self.side_effect
+        if effect is not None:
+            if _is_exception(effect):
+                raise effect
+            elif not _callable(effect):
+>               result = next(effect)
+                         ^^^^^^^^^^^^
+E               StopIteration
+
+C:\Users\nicho\AppData\Local\Programs\Python\Python313\Lib\unittest\mock.py:1228: StopIteration
+---------------------------- Captured stdout call -----------------------------
+PIPELINE: Pre-encoding 4 frames...
+PIPELINE: Describing 1 segments in parallel...
+
+============================================================
+BURST DESCRIPTIONS:
+Opening: INTENSITY: 5/10. Action description.
+============================================================
+
+PIPELINE: Synthesizing video description...
+RAW AI DESCRIPTION: Synthesized description.
+
+============================================================
+FINAL DESCRIPTION: Synthesized description.
+============================================================
+
+PIPELINE: Extracting search tags (with vision)...
+=========================== short test summary info ===========================
+FAILED tests/test_scanner.py::test_scan_folder_basic_discovery - ImportError:...
+FAILED tests/test_vlm.py::test_vlm_caching - AssertionError: assert 2 == 1
+FAILED tests/test_vlm.py::test_parallel_burst_logic - StopIteration
+========================= 3 failed, 8 passed in 0.43s =========================

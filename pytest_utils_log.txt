@@ -1,0 +1,102 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.13.2, pytest-9.0.2, pluggy-1.6.0 -- C:\Users\nicho\AppData\Local\Programs\Python\Python313\python.exe
+cachedir: .pytest_cache
+rootdir: D:\AI_Shit\08_Utlity_Datatagger_Organizer
+plugins: anyio-4.12.1
+collecting ... collected 5 items
+
+tests/test_utils.py::test_config_manager_loading FAILED                  [ 20%]
+tests/test_utils.py::test_metadata_cache_needs_rehash FAILED             [ 40%]
+tests/test_utils.py::test_standardize_nl_date PASSED                     [ 60%]
+tests/test_utils.py::test_parse_filename FAILED                          [ 80%]
+tests/test_utils.py::test_resolve_ssh_details PASSED                     [100%]
+
+================================== FAILURES ===================================
+_________________________ test_config_manager_loading _________________________
+
+mock_config = 'C:\\Users\\nicho\\AppData\\Local\\Temp\\tmpvq74j6ux\\config.json'
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001D669B32D70>
+
+    def test_config_manager_loading(mock_config, monkeypatch):
+        """Test that ConfigManager loads the correct config values."""
+        # Reset internal cache for testing
+        ConfigManager._config = None
+    
+        # Mock os.path.join to point to our mock_config
+        orig_join = os.path.join
+        def mock_join(*args):
+            if "config.json" in args:
+                return mock_config
+            return orig_join(*args)
+    
+        monkeypatch.setattr(os.path, "join", mock_join)
+        monkeypatch.setattr(os.path, "exists", lambda x: True)
+    
+>       config = ConfigManager.get_config()
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_utils.py:21: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cls = <class 'src.utils.ConfigManager'>
+
+    @classmethod
+    def get_config(cls):
+        if cls._config is None:
+>           config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.json")
+                          ^^
+E           NameError: name 'os' is not defined. Did you forget to import 'os'?
+
+src\utils.py:79: NameError
+______________________ test_metadata_cache_needs_rehash _______________________
+
+temp_workspace = 'C:\\Users\\nicho\\AppData\\Local\\Temp\\tmp5xw2581t'
+
+    def test_metadata_cache_needs_rehash(temp_workspace):
+        """Test that MetadataCache correctly identifies when a file needs rehashing."""
+        file_path = os.path.join(temp_workspace, "test.txt")
+        with open(file_path, "w") as f:
+            f.write("hello")
+    
+        # Needs rehash if no hash provided
+        assert MetadataCache.needs_rehash(file_path, None) is True
+    
+        # Cache the current state
+        fake_hash = "abc"
+        # Populate cache manually for test
+        MetadataCache._cache = {}
+        MetadataCache.needs_rehash(file_path, fake_hash)
+    
+        # Should not need rehash now
+>       assert MetadataCache.needs_rehash(file_path, fake_hash) is False
+E       AssertionError: assert True is False
+E        +  where True = needs_rehash('C:\\Users\\nicho\\AppData\\Local\\Temp\\tmp5xw2581t\\test.txt', 'abc')
+E        +    where needs_rehash = MetadataCache.needs_rehash
+
+tests\test_utils.py:41: AssertionError
+_____________________________ test_parse_filename _____________________________
+
+    def test_parse_filename():
+        """Test filename metadata extraction."""
+        # Standard date
+>       meta = parse_filename("2025-01-01 Scene 1.mp4")
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_utils.py:64: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+filename = '2025-01-01 Scene 1.mp4', parent_path = None
+
+    def parse_filename(filename, parent_path=None):
+        """Extracts structural metadata from a file string."""
+        data = {"type": None, "date": None, "name": "Unknown Scene", "number": 1}
+>       name_only, ext = os.path.splitext(filename)
+                         ^^
+E       NameError: name 'os' is not defined. Did you forget to import 'os'?
+
+src\utils.py:144: NameError
+=========================== short test summary info ===========================
+FAILED tests/test_utils.py::test_config_manager_loading - NameError: name 'os...
+FAILED tests/test_utils.py::test_metadata_cache_needs_rehash - AssertionError...
+FAILED tests/test_utils.py::test_parse_filename - NameError: name 'os' is not...
+========================= 3 failed, 2 passed in 0.06s =========================

@@ -1,3 +1,7 @@
+import requests
+import json
+import base64
+import os
 import re
 import hashlib
 from concurrent.futures import ThreadPoolExecutor, as_completed

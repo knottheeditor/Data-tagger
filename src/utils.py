@@ -1,3 +1,7 @@
+import re
+import os
+import subprocess
+import requests
 from datetime import datetime
 import json
 import hashlib
