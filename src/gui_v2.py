@@ -29,6 +29,8 @@ import traceback
 import hashlib
 from src.video_utils import VideoUtils
 from src.vlm import VLMClient
+from src.database import db, Content, Asset
+from src.utils import resolve_ssh_details, RemotePaths, StandardNaming, ConfigManager
 
 class SystemStatusWorker(QThread):
     status_updated = Signal(str, str) # text, color (hex)
@@ -40,7 +42,6 @@ class SystemStatusWorker(QThread):
     def run(self):
         try:
             # We use a short timeout so the GUI isn't hung if the droplet is off
-            import requests
             res = requests.get(self.check_url, timeout=3)
             if res.status_code == 200:
                 self.status_updated.emit("🟢 DROPLET ONLINE | VLM READY", "#00FF00")
