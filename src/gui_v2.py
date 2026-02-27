@@ -1054,24 +1054,26 @@ class DataForagerV2(QMainWindow):
 
     def force_refresh_duration(self):
         if not self.selected_content: return
-        from src.video_utils import VideoUtils
         source = self.selected_content.source_path
+        dur = 0
         
         if source.startswith("do:"):
             # REMOTE REFRESH for Cloud Clips
-            QMessageBox.information(self, "Cloud Request", "Sending duration probe command to pod cluster...")
-            # We would typically start a worker here, but for now let's just use VideoUtils if mounted
-            # If the user says ffprobe fails, we should implement a remote probe.
-            pass
+            QMessageBox.information(self, "Cloud Request", "Sending duration probe command via remote tunnel...")
+            QApplication.processEvents()
+            from src.scanner import extract_metadata_remote
+            dur, _ = extract_metadata_remote(source)
+        else:
+            from src.video_utils import VideoUtils
+            dur = VideoUtils.get_duration(source)
             
-        dur = VideoUtils.get_duration(source)
-        if dur > 0:
+        if dur and dur > 0:
             self.selected_content.duration_seconds = int(dur)
             self.selected_content.save()
             self.load_content_to_form(self.selected_content)
             QMessageBox.information(self, "Success", f"Duration updated: {int(dur)}s")
         else:
-            QMessageBox.warning(self, "Failed", "FFprobe returned 0. Verify file is valid.")
+            QMessageBox.warning(self, "Failed", "Duration extraction returned 0. Verify file is valid or check network connection.")
 
     def save_metadata(self, silent=False):
         if not self.selected_content: return
@@ -1697,8 +1699,17 @@ class DataForagerV2(QMainWindow):
                 with open(tmp_conf, "w") as f:
                     f.write(rclone_conf)
                 
-                # Look for rclone.exe in the current directory or PATH
-                rclone_exe = shutil.which("rclone") or os.path.join(os.getcwd(), "rclone.exe")
+                # Look for rclone.exe: config override > PATH > current directory
+                rclone_exe = self.config.get("rclone_path") or shutil.which("rclone") or os.path.join(os.getcwd(), "rclone.exe")
+                
+                if not os.path.exists(rclone_exe):
+                    QMessageBox.critical(self, "Rclone Missing",
+                        "rclone.exe not found!\n\n"
+                        "Install with: winget install Rclone.Rclone\n"
+                        "Or set 'rclone_path' in config.json to the full path.")
+                    if os.path.exists(tmp_conf):
+                        os.remove(tmp_conf)
+                    return
                 
                 subprocess.run([rclone_exe, "--config", tmp_conf, "copyto", c.source_path, dest_video], 
                               check=True, startupinfo=startupinfo)

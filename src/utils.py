@@ -16,8 +16,17 @@ class RemotePaths:
 def get_rclone_url(rclone_path, timeout=15):
     """Gets a public/temporary URL for an rclone path via 'rclone link'."""
     try:
+        # Get rclone executable path from config
+        import json
+        config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.json")
+        rclone_exe = "rclone"
+        if os.path.exists(config_path):
+            with open(config_path, 'r') as f:
+                config = json.load(f)
+                rclone_exe = config.get("rclone_path", "rclone")
+
         # DigitalOcean Spaces requires linking with an expiration otherwise it fails if private.
-        cmd = ["rclone", "link", "--expire", "15m", rclone_path]
+        cmd = [rclone_exe, "link", "--expire", "15m", rclone_path]
         output = subprocess.check_output(cmd, stderr=subprocess.DEVNULL, timeout=timeout).decode('utf-8').strip()
         lines = [l.strip() for l in output.splitlines() if l.strip()]
         return lines[-1] if lines else None
@@ -29,8 +38,6 @@ def get_rclone_url(rclone_path, timeout=15):
         return None
     except Exception as e:
         print(f"  > rclone link failed: {e}", flush=True)
-        return None
-    except Exception:
         return None
 
 # ==================== DATE & TYPE PARSING ====================

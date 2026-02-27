@@ -355,7 +355,15 @@ def _link_assets(master_record, file_list):
 
 def get_rclone_hash(remote_path, block_size=1024*1024):
     """Gets a hash for the first megabyte using rclone cat."""
-    cmd = ["rclone", "cat", remote_path, "--offset", "0", "--count", str(block_size)]
+    import json
+    config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.json")
+    rclone_exe = "rclone"
+    if os.path.exists(config_path):
+        with open(config_path, 'r') as f:
+            config = json.load(f)
+            rclone_exe = config.get("rclone_path", "rclone")
+
+    cmd = [rclone_exe, "cat", remote_path, "--offset", "0", "--count", str(block_size)]
     try:
         output = subprocess.check_output(cmd)
         return hashlib.md5(output).hexdigest()
@@ -367,8 +375,16 @@ def scan_rclone(remote_name):
     """
     Scans an rclone remote recursively, groups files, and designates a Master.
     """
+    import json
+    config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.json")
+    rclone_exe = "rclone"
+    if os.path.exists(config_path):
+        with open(config_path, 'r') as f:
+            config = json.load(f)
+            rclone_exe = config.get("rclone_path", "rclone")
+
     print(f"Scanning rclone remote: {remote_name}...", flush=True)
-    cmd = ["rclone", "lsjson", "-R", remote_name]
+    cmd = [rclone_exe, "lsjson", "-R", remote_name]
     files_added = 0
     files_updated = 0
     groups = collections.defaultdict(list)
@@ -466,7 +482,7 @@ def scan_rclone(remote_name):
                 _RCLONE_SERVE_BASE = "http://localhost:9876"
                 print(f"  > Starting rclone HTTP proxy for {remote_name}...", flush=True)
                 serve_proc = subprocess.Popen(
-                    ["rclone", "serve", "http", remote_name, "--addr", ":9876", "--read-only",
+                    [rclone_exe, "serve", "http", remote_name, "--addr", ":9876", "--read-only",
                      "--vfs-cache-mode", "off"],
                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
                 )
